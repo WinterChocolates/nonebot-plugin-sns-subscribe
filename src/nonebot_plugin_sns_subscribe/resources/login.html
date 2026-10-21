@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>订阅管理 · 登录</title>
+<style>
+  :root { --accent: #fb7299; --accent2: #fe2c55; --line: #e3e8ee; --muted: #6b7785; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+    background: radial-gradient(1200px 600px at 10% -10%, rgba(251,114,153,.22), transparent 60%),
+                radial-gradient(900px 500px at 110% 110%, rgba(59,130,246,.18), transparent 55%), #f4f6f9;
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; color: #1c2430;
+  }
+  .card {
+    width: min(420px, 100%); background: #fff; border: 1px solid var(--line);
+    border-radius: 16px; padding: 28px; box-shadow: 0 20px 50px -24px rgba(15,23,42,.35);
+  }
+  .mark {
+    width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+    color: #fff; font-weight: 800; font-size: 13px; margin-bottom: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+  h1 { margin: 0 0 4px; font-size: 19px; }
+  p { margin: 0 0 18px; color: var(--muted); font-size: 12.5px; }
+  input {
+    width: 100%; padding: 11px 13px; border: 1px solid var(--line); border-radius: 9px;
+    font: inherit; outline: none; transition: .15s;
+  }
+  input:focus { border-color: #9db8ff; box-shadow: 0 0 0 3px rgba(59,130,246,.14); }
+  button {
+    width: 100%; margin-top: 12px; padding: 11px; border: 0; border-radius: 9px; color: #fff;
+    font: inherit; font-weight: 650; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+  button:hover { filter: brightness(1.05); }
+  .error { margin-top: 10px; color: #dc2626; font-size: 12.5px; min-height: 18px; }
+  .hint { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+  code { background: #f4f6f9; padding: 1px 5px; border-radius: 5px; }
+</style>
+</head>
+<body>
+<form class="card" id="form">
+  <div class="mark">SNS</div>
+  <h1>B站 / 抖音订阅管理</h1>
+  <p>请输入控制台输出的管理令牌，或访问 <code>/sns-subscribe/?token=…</code> 自动登录。</p>
+  <input id="token" type="password" placeholder="管理令牌" autocomplete="current-password" required autofocus>
+  <button type="submit">进入后台</button>
+  <div class="error" id="error"></div>
+  <div class="hint">令牌保存在数据库 <code>settings.web_token</code>，也可通过环境变量 <code>SNS_WEB_TOKEN</code> 固定。</div>
+</form>
+<script>
+const form = document.getElementById("form");
+form.addEventListener("submit", async event => {
+  event.preventDefault();
+  const error = document.getElementById("error");
+  error.textContent = "";
+  const token = document.getElementById("token").value.trim();
+  try {
+    const response = await fetch("api/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.detail || "登录失败");
+    }
+    location.href = "./";
+  } catch (exc) {
+    error.textContent = exc.message;
+  }
+});
+</script>
+</body>
+</html>

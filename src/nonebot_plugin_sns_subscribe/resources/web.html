@@ -1,0 +1,1203 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B站 / 抖音订阅管理</title>
+<style>
+  :root {
+    --bg: #f4f6f9; --panel: #ffffff; --line: #e3e8ee; --text: #1c2430;
+    --muted: #6b7785; --accent: #fb7299; --accent2: #fe2c55; --blue: #3b82f6;
+    --ok: #10b981; --warn: #f59e0b; --danger: #ef4444; --radius: 12px;
+    --shadow: 0 1px 2px rgba(16,24,40,.06), 0 8px 24px -12px rgba(16,24,40,.18);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    color: var(--text); background: var(--bg);
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  }
+  a { color: var(--blue); text-decoration: none; }
+  .app { display: grid; grid-template-columns: 212px minmax(0, 1fr); min-height: 100vh; }
+  .sidebar {
+    display: flex; flex-direction: column; gap: 8px; padding: 20px 14px;
+    background: #fff; border-right: 1px solid var(--line); position: sticky; top: 0; height: 100vh;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; }
+  .brand-mark {
+    width: 34px; height: 34px; border-radius: 10px; color: #fff; font-weight: 800;
+    display: grid; place-items: center; font-size: 13px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+  .brand strong { font-size: 15px; display: block; line-height: 1.2; }
+  .brand small { color: var(--muted); font-size: 11px; }
+  .nav { display: flex; flex-direction: column; gap: 4px; }
+  .nav button {
+    display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 12px;
+    border: 0; border-radius: 9px; background: transparent; color: #334155;
+    font: inherit; font-weight: 500; text-align: left; cursor: pointer; transition: .15s;
+  }
+  .nav button:hover { background: #f1f5f9; }
+  .nav button.active { background: linear-gradient(135deg, rgba(251,114,153,.16), rgba(254,44,85,.12)); color: var(--accent2); font-weight: 650; }
+  .sidebar-foot { margin-top: auto; display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+  main { padding: 22px 26px 60px; min-width: 0; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+  .topbar h1 { margin: 0; font-size: 20px; }
+  .topbar p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+  .tab { display: none; }
+  .tab.active { display: block; animation: fade .18s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 16px 18px; margin-bottom: 16px;
+  }
+  .panel > h2 { margin: 0 0 12px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .panel > h2 .badge { margin-left: auto; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin-bottom: 16px; }
+  .stat {
+    background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px 16px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+  }
+  .stat::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: linear-gradient(var(--accent), var(--accent2)); }
+  .stat span { color: var(--muted); font-size: 12px; }
+  .stat strong { display: block; font-size: 26px; line-height: 1.2; margin-top: 4px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .row.between { justify-content: space-between; }
+  input, select, textarea, button { font: inherit; color: inherit; }
+  input[type=text], input[type=number], input[type=password], select, textarea {
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
+    outline: none; transition: .15s; min-width: 0;
+  }
+  input:focus, select:focus, textarea:focus { border-color: #9db8ff; box-shadow: 0 0 0 3px rgba(59,130,246,.14); }
+  button {
+    padding: 8px 14px; border-radius: 8px; border: 1px solid transparent; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-weight: 600;
+    transition: .15s;
+  }
+  button:hover { filter: brightness(1.05); }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  button.ghost { background: #fff; border-color: var(--line); color: #334155; }
+  button.ghost:hover { background: #f8fafc; }
+  button.danger { background: #fff; border-color: #fecaca; color: var(--danger); }
+  button.small { padding: 4px 9px; font-size: 12px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+    background: #f1f5f9; color: var(--muted); font-size: 11px; font-weight: 600;
+  }
+  .badge.bili { background: rgba(251,114,153,.14); color: #e11d63; }
+  .badge.dy { background: rgba(254,44,85,.12); color: #c81e3f; }
+  .badge.ok { background: rgba(16,185,129,.13); color: #047857; }
+  .badge.warn { background: rgba(245,158,11,.16); color: #b45309; }
+  .badge.off { background: #f1f5f9; color: #8a94a1; }
+  .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+  .group-card { border: 1px solid var(--line); border-radius: var(--radius); background: #fff; box-shadow: var(--shadow); margin-bottom: 14px; }
+  .group-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .group-head img { width: 38px; height: 38px; border-radius: 50%; background: #eef2f7; object-fit: cover; }
+  .group-head .title { min-width: 0; }
+  .group-head strong { display: block; font-size: 14px; }
+  .group-head small { color: var(--muted); }
+  .group-body { padding: 14px 16px; display: grid; gap: 12px; }
+  .sub-table { width: 100%; border-collapse: collapse; }
+  .sub-table th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+  .sub-table td { padding: 7px 8px; border-bottom: 1px dashed #eef1f5; vertical-align: middle; }
+  .sub-table tr:last-child td { border-bottom: 0; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 7px; background: #f6f8fb; border: 1px solid var(--line); font-size: 12px; }
+  .chip button { background: transparent; color: var(--danger); border: 0; padding: 0 2px; font-weight: 700; }
+  .atall-cell { display: flex; gap: 10px; flex-wrap: wrap; }
+  .atall-cell label { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); }
+  .override-grid { display: grid; gap: 8px; }
+  .override-row {
+    display: grid; grid-template-columns: 92px 1.15fr 1fr 74px 74px auto; gap: 8px; align-items: center;
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: #fbfcfe;
+  }
+  .override-row .kind-label { font-size: 12px; font-weight: 650; display: flex; align-items: center; gap: 6px; }
+  input[type=color] { width: 100%; height: 32px; padding: 2px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+  .row > input[type=color] { width: 56px; flex: 0 0 auto; }
+  .editor-layout { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(300px,.9fr); gap: 16px; align-items: start; }
+  .editor-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+  #tplEditor {
+    width: 100%; min-height: 520px; padding: 12px 14px; border-radius: 10px; resize: vertical;
+    border: 1px solid var(--line); background: #0f172a; color: #dbeafe;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 12.5px; line-height: 1.65;
+    tab-size: 2; white-space: pre; overflow: auto;
+  }
+  .preview-box {
+    min-height: 260px; border-radius: 10px; border: 1px dashed var(--line); background: #f8fafc;
+    display: grid; place-items: center; padding: 12px; color: var(--muted); text-align: center;
+  }
+  .preview-box img { max-width: 100%; border-radius: 10px; box-shadow: var(--shadow); }
+  .login-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; }
+  .login-shot { border: 1px solid var(--line); border-radius: 10px; background: #f8fafc; padding: 8px; margin-top: 10px; }
+  .login-shot img { width: 100%; border-radius: 6px; cursor: crosshair; }
+  .qr { width: 200px; height: 200px; border-radius: 10px; background: #fff; border: 1px solid var(--line); padding: 6px; }
+  textarea.cookie { width: 100%; min-height: 76px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; background: #fbfcfe; font-size: 13px; }
+  .switch input { width: 16px; height: 16px; accent-color: var(--accent2); }
+  .field { display: grid; gap: 4px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  #toast {
+    position: fixed; right: 22px; bottom: 22px; display: grid; gap: 8px; z-index: 90;
+  }
+  .toast-item {
+    min-width: 220px; max-width: 380px; padding: 10px 14px; border-radius: 10px; color: #fff;
+    background: #334155; box-shadow: 0 12px 30px -12px rgba(15,23,42,.6); font-size: 13px;
+    animation: slide .2s ease;
+  }
+  .toast-item.ok { background: #059669; }
+  .toast-item.err { background: #dc2626; }
+  @keyframes slide { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 1080px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; border-right: 0; border-bottom: 1px solid var(--line); }
+    .brand { padding: 0 8px; }
+    .nav { flex-direction: row; flex-wrap: wrap; }
+    .sidebar-foot { margin: 0 0 0 auto; border: 0; padding: 0; }
+    .editor-layout, .grid-2, .login-grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    main { padding: 16px; }
+  }
+  @media (max-width: 640px) {
+    .override-row { grid-template-columns: 1fr 1fr; }
+    .stats { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">SNS</div>
+      <div><strong>订阅推送</strong><small>B站 · 抖音</small></div>
+    </div>
+    <nav class="nav" id="nav">
+      <button data-tab="overview" class="active">概览</button>
+      <button data-tab="subs">订阅管理</button>
+      <button data-tab="templates">模板编辑</button>
+      <button data-tab="assets">资源</button>
+      <button data-tab="login">账号登录</button>
+      <button data-tab="settings">运行设置</button>
+    </nav>
+    <div class="sidebar-foot">
+      <button class="ghost small" onclick="logout()">退出登录</button>
+    </div>
+  </aside>
+  <main>
+    <div class="topbar">
+      <div>
+        <h1 id="pageTitle">概览</h1>
+        <p id="pageSubtitle">B站动态 / 视频 / 直播与抖音作品 / 开播的统一订阅推送</p>
+      </div>
+      <button class="ghost" onclick="refresh()">刷新</button>
+    </div>
+
+    <!-- 概览 -->
+    <section class="tab active" id="tab-overview">
+      <div class="stats" id="statGrid"></div>
+      <div class="grid-2">
+        <section class="panel">
+          <h2>运行状态</h2>
+          <div id="runtimeSummary" class="muted">加载中…</div>
+        </section>
+        <section class="panel">
+          <h2>环境信息</h2>
+          <div id="envInfo" class="muted">加载中…</div>
+        </section>
+      </div>
+      <section class="panel">
+        <h2>快速开始</h2>
+        <ol class="muted" style="margin:0; padding-left:20px; line-height:2">
+          <li>在「订阅管理」中扫描 QQ 群并添加 B 站 / 抖音作者。</li>
+          <li>B 站动态需要 Cookie：在「账号登录」中扫码登录。</li>
+          <li>抖音需要在「账号登录」中完成扫码或粘贴 Cookie。</li>
+          <li>在「模板编辑」中直接修改 HTML 模板，保存后可应用到指定群。</li>
+        </ol>
+      </section>
+    </section>
+
+    <!-- 订阅 -->
+    <section class="tab" id="tab-subs">
+      <section class="panel">
+        <h2>添加订阅</h2>
+        <form id="subForm" class="row">
+          <select id="subPlatform">
+            <option value="bilibili">B站</option>
+            <option value="douyin">抖音</option>
+          </select>
+          <select id="subGroup" style="min-width:220px"></select>
+          <input id="subTarget" type="text" style="flex:1; min-width:260px"
+                 placeholder="B站：UID 或 space.bilibili.com/UID；抖音：主页链接或 sec_user_id">
+          <button type="submit">订阅</button>
+          <button type="button" class="ghost" id="scanBtn">扫描 QQ 群</button>
+        </form>
+        <p class="hint" id="subHint">提示：超级管理员也可以在群内使用 <span class="mono">/sub add &lt;bili|douyin&gt; &lt;目标&gt;</span></p>
+      </section>
+      <div id="groupCards"><p class="muted">加载中…</p></div>
+    </section>
+
+    <!-- 模板 -->
+    <section class="tab" id="tab-templates">
+      <section class="panel">
+        <h2>模板文件</h2>
+        <div class="row">
+          <select id="tplPlatform"></select>
+          <select id="tplKind"></select>
+          <select id="tplFile" style="min-width:240px"></select>
+          <button class="ghost" id="tplLoad">载入</button>
+          <button id="tplNew">新建</button>
+          <button class="ghost" id="tplUploadBtn">上传 HTML</button>
+          <input type="file" id="tplUpload" accept=".html,.htm" hidden>
+          <button class="danger" id="tplDelete">删除</button>
+        </div>
+        <p class="hint">
+          模板使用 Jinja2 语法，可用变量：<span class="mono">content</span>（id / title / text / url / author_name / author_avatar / cover / images / published_text / live_action / forward…）、
+          <span class="mono">font_css</span>、<span class="mono">accent_color</span>、<span class="mono">gradient_color</span>、<span class="mono">theme_background</span>、<span class="mono">platform_label</span>。
+          卡片根元素必须是 <span class="mono">id="sns-card"</span>。
+        </p>
+      </section>
+
+      <div class="editor-layout">
+        <section class="panel">
+          <h2>在线编辑 <span class="badge" id="tplStatus">内置模板</span></h2>
+          <div class="editor-bar">
+            <button id="tplSave">保存</button>
+            <button class="ghost" id="tplSaveAs">另存为</button>
+            <button class="ghost" id="tplRevert">载入内置</button>
+            <button class="ghost" id="tplPreview">预览渲染</button>
+          </div>
+          <textarea id="tplEditor" spellcheck="false"></textarea>
+          <p class="hint">保存后可在下方「应用到群」中选择该模板，或在「订阅管理」中按群设置渲染方案。</p>
+        </section>
+        <section class="panel">
+          <h2>渲染预览</h2>
+          <div class="row">
+            <input id="previewId" type="text" style="flex:1; min-width:160px"
+                   placeholder="可选：动态号 / BV号 / 直播间号（抖音填主页链接）">
+          </div>
+          <div class="row" style="margin-top:8px">
+            <select id="previewFont" style="flex:1"><option value="">默认字体</option></select>
+            <input type="color" id="previewColor" value="#fb7299" style="width:56px" title="主色">
+            <input type="color" id="previewGradient" value="#a78bfa" style="width:56px" title="渐变色">
+          </div>
+          <div class="preview-box" id="previewBox" style="margin-top:10px">点击「预览渲染」查看编辑器中的最新模板效果</div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <h2>应用到群</h2>
+        <div class="row">
+          <select id="applyGroup" style="min-width:240px"></select>
+          <select id="applyTemplate" style="min-width:220px"></select>
+          <select id="applyFont"><option value="">默认字体</option></select>
+          <input type="color" id="applyColor" value="#fb7299" title="主色">
+          <input type="color" id="applyGradient" value="#a78bfa" title="渐变色">
+          <button id="applyBtn">保存渲染方案</button>
+          <button class="ghost" id="applyReset">恢复默认</button>
+        </div>
+        <p class="hint">渲染方案作用于「当前平台 + 当前类型」，例如「B站 · 直播」。</p>
+      </section>
+    </section>
+
+    <!-- 资源 -->
+    <section class="tab" id="tab-assets">
+      <div class="grid-2">
+        <section class="panel">
+          <h2>字体 <span class="badge" id="fontCount">0</span></h2>
+          <div class="row">
+            <input type="file" id="fontUpload" accept=".ttf,.otf,.ttc,.woff,.woff2">
+            <button id="fontUploadBtn">上传字体</button>
+          </div>
+          <div id="fontList" class="chips" style="margin-top:10px"></div>
+        </section>
+        <section class="panel">
+          <h2>模板清单</h2>
+          <div id="templateInventory" class="muted">加载中…</div>
+        </section>
+      </div>
+    </section>
+
+    <!-- 登录 -->
+    <section class="tab" id="tab-login">
+      <div class="login-grid">
+        <section class="panel">
+          <h2>B站扫码登录</h2>
+          <p class="muted" id="biliCookieState">Cookie：加载中…</p>
+          <div class="row">
+            <button id="biliQrBtn">生成登录二维码</button>
+            <button class="ghost" id="biliCookieClear">清除 Cookie</button>
+          </div>
+          <p class="muted" id="biliLoginState" style="margin-top:8px"></p>
+          <img id="biliQr" class="qr" alt="" hidden>
+          <div class="field" style="margin-top:12px">
+            <label>或粘贴浏览器 Cookie（SESSDATA=…; bili_jct=…;）</label>
+            <textarea id="biliCookieInput" class="cookie" placeholder="SESSDATA=xxx; bili_jct=yyy; DedeUserID=zzz"></textarea>
+            <div class="row"><button id="biliCookieSave">保存 Cookie</button></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>抖音登录</h2>
+          <p class="muted" id="dyCookieState">Cookie：加载中…</p>
+          <div class="row">
+            <button id="dyStartBtn">打开抖音登录页</button>
+            <button class="ghost" id="dyRefreshBtn" disabled>刷新截图</button>
+            <button class="ghost" id="dySaveBtn" disabled>保存当前 Cookie</button>
+            <button class="ghost" id="dyVerifyBtn">验证登录态</button>
+            <button class="danger" id="dyStopBtn" disabled>结束会话</button>
+          </div>
+          <p class="muted" id="dyLoginState" style="margin-top:8px"></p>
+          <div class="row" style="margin-top:8px">
+            <input id="dyTypeText" type="text" placeholder="输入手机号 / 验证码" style="flex:1; min-width:150px">
+            <button class="ghost" id="dyTypeBtn" disabled>输入</button>
+            <button class="ghost" id="dyEnterBtn" disabled>回车</button>
+          </div>
+          <div class="login-shot" id="dyShotBox" hidden>
+            <img id="dyShot" alt="抖音登录页截图">
+            <p class="hint">直接点击截图中按钮即可在该位置点击（例如「扫码登录」「发送验证码」）。</p>
+          </div>
+          <div class="field" style="margin-top:12px">
+            <label>或粘贴浏览器 Cookie</label>
+            <textarea id="dyCookieInput" class="cookie" placeholder="sessionid=xxx; uid_tt=yyy; ..."></textarea>
+            <div class="row"><button id="dyCookieSave">保存 Cookie</button><button class="ghost" id="dyCookieClear">清除 Cookie</button></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- 设置 -->
+    <section class="tab" id="tab-settings">
+      <section class="panel">
+        <h2>轮询与推送</h2>
+        <div class="row" style="gap:12px">
+          <label class="switch"><input type="checkbox" id="cfgBiliDynamic"> B站动态</label>
+          <label class="switch"><input type="checkbox" id="cfgBiliLive"> B站直播</label>
+          <label class="switch"><input type="checkbox" id="cfgDouyin"> 抖音轮询</label>
+          <label class="switch"><input type="checkbox" id="cfgLiveEnd"> 推送下播通知</label>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <div class="field"><label>B站动态间隔（秒）</label><input type="number" id="cfgBiliDynamicInterval" min="30" step="10" style="width:140px"></div>
+          <div class="field"><label>B站直播间隔（秒）</label><input type="number" id="cfgBiliLiveInterval" min="10" step="5" style="width:140px"></div>
+          <div class="field"><label>抖音间隔（秒）</label><input type="number" id="cfgDouyinInterval" min="60" step="10" style="width:140px"></div>
+          <button id="cfgSave" style="align-self:end">保存并生效</button>
+        </div>
+        <p class="hint">B站动态轮询需要 Cookie；抖音轮询依赖 Chromium 浏览器，间隔过小容易触发风控。</p>
+      </section>
+      <section class="panel">
+        <h2>浏览器</h2>
+        <div id="browserInfo" class="muted">加载中…</div>
+        <p class="hint">B站卡片渲染与抖音抓取共用同一套浏览器设置：优先 <span class="mono">SNS_BROWSER_CHANNEL</span>
+          （兼容 <span class="mono">SNS_DOUYIN_BROWSER_CHANNEL</span>），可选 <span class="mono">chrome</span> / <span class="mono">msedge</span>；
+          Windows 下未配置时会自动使用已安装的 Chrome 或 Edge，最后回退 Playwright Chromium。</p>
+      </section>
+      <section class="panel">
+        <h2>手动推送</h2>
+        <div class="row">
+          <select id="pushPlatform"><option value="bilibili">B站</option><option value="douyin">抖音</option></select>
+          <select id="pushKind"><option value="dynamic">动态</option><option value="video">视频</option><option value="live">直播</option></select>
+          <select id="pushGroup" style="min-width:200px"></select>
+          <input id="pushId" type="text" style="flex:1; min-width:200px" placeholder="动态号 / BV号 / 直播间号；抖音填主页链接">
+          <button id="pushBtn">立即推送</button>
+        </div>
+        <p class="hint" id="pushHint">抖音：类型选「视频」推送最新作品，「直播」要求当前正在直播。</p>
+      </section>
+    </section>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+const WEB_PATH = (() => {
+  const path = location.pathname.replace(/\/+$/, "");
+  return path.endsWith("/login") ? path.slice(0, -6) : path;
+})();
+const state = {
+  groups: [], fonts: [], templates: {}, kinds: {}, cookies: {}, config: {},
+  stats: {}, data_dir: "", web_path: WEB_PATH,
+};
+let scannedGroups = [];
+let currentTemplate = { platform: "bilibili", kind: "dynamic", name: "", custom: false };
+let dyLogin = { key: "", timer: null };
+let biliPollTimer = null;
+
+const KIND_LABELS = { dynamic: "动态", video: "视频", live: "直播" };
+const PLATFORM_LABELS = { bilibili: "B站", douyin: "抖音" };
+const ATALL_KINDS = [["all", "全部"], ["dynamic", "动态"], ["video", "视频"], ["live", "直播"]];
+
+/* ---------------------------------------------------------------- 基础工具 */
+function esc(value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, ch => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[ch]));
+}
+function toast(message, type = "") {
+  const item = document.createElement("div");
+  item.className = "toast-item " + type;
+  item.textContent = message;
+  document.getElementById("toast").appendChild(item);
+  setTimeout(() => item.remove(), type === "err" ? 6000 : 3200);
+}
+async function api(path, options = {}) {
+  const opts = { credentials: "same-origin", ...options };
+  if (opts.body && !(opts.body instanceof FormData)) {
+    opts.headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+    if (typeof opts.body !== "string") opts.body = JSON.stringify(opts.body);
+  }
+  const response = await fetch(state.web_path + path, opts);
+  if (response.status === 401) {
+    location.href = state.web_path + "/login";
+    throw new Error("未授权");
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || "请求失败（" + response.status + "）");
+  return data;
+}
+async function guard(fn) {
+  try { await fn(); } catch (error) { toast(error.message || String(error), "err"); }
+}
+function platformBadge(platform) {
+  return `<span class="badge ${platform === "bilibili" ? "bili" : "dy"}">${PLATFORM_LABELS[platform] || platform}</span>`;
+}
+function shortId(id) {
+  return id && id.length > 18 ? id.slice(0, 14) + "…" : (id || "");
+}
+
+/* ---------------------------------------------------------------- 状态加载 */
+async function loadState() {
+  const data = await api("/api/state");
+  Object.assign(state, data);
+  renderOverview();
+  renderSubscriptions();
+  renderTemplateSelectors();
+  renderAssets();
+  renderLogin();
+  renderSettings();
+}
+async function refresh() {
+  await guard(async () => {
+    await loadState();
+    toast("已刷新", "ok");
+  });
+}
+async function logout() {
+  try { await api("/api/logout", { method: "POST" }); } catch (error) { /* ignore */ }
+  location.href = state.web_path + "/login";
+}
+
+/* ---------------------------------------------------------------- 导航 */
+document.getElementById("nav").addEventListener("click", event => {
+  const button = event.target.closest("button[data-tab]");
+  if (!button) return;
+  document.querySelectorAll("#nav button").forEach(item => item.classList.toggle("active", item === button));
+  document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+  document.getElementById("tab-" + button.dataset.tab).classList.add("active");
+  document.getElementById("pageTitle").textContent = button.textContent;
+});
+
+/* ---------------------------------------------------------------- 概览 */
+function renderOverview() {
+  const stats = state.stats || {};
+  document.getElementById("statGrid").innerHTML = [
+    ["QQ 群", stats.groups || 0],
+    ["B站订阅", stats.bilibili || 0],
+    ["抖音订阅", stats.douyin || 0],
+    ["自定义模板", stats.templates || 0],
+  ].map(([label, value]) => `<div class="stat"><span>${label}</span><strong>${value}</strong></div>`).join("");
+
+  const config = state.config || {};
+  document.getElementById("runtimeSummary").innerHTML = `
+    <div class="chips">
+      <span class="chip">B站动态 ${config.enable_bilibili_dynamic ? "开启" : "关闭"} · ${config.bilibili_dynamic_interval}s</span>
+      <span class="chip">B站直播 ${config.enable_bilibili_live ? "开启" : "关闭"} · ${config.bilibili_live_interval}s</span>
+      <span class="chip">抖音 ${config.enable_douyin ? "开启" : "关闭"} · ${config.douyin_interval}s</span>
+      <span class="chip">下播通知 ${config.notify_live_end ? "开启" : "关闭"}</span>
+    </div>
+    <p class="hint">B站 Cookie：${state.cookies?.bilibili?.configured ? "已配置" : "未配置"}；
+       抖音 Cookie：${state.cookies?.douyin?.configured ? "已配置" : "未配置"}。</p>`;
+  document.getElementById("envInfo").innerHTML = `
+    <p class="mono">数据目录：${esc(state.data_dir)}</p>
+    <p class="mono">后台路径：${esc(state.web_path)}/</p>
+    <p class="mono">渲染宽度：${config.render_width || 720}px</p>`;
+}
+
+/* ---------------------------------------------------------------- 订阅管理 */
+function groupOptions(selected, includeEmpty = true) {
+  const groups = new Map();
+  (scannedGroups || []).forEach(item => groups.set(item.group_id, item.group_name));
+  (state.groups || []).forEach(item => groups.set(item.group_id, item.name || ("QQ群 " + item.group_id)));
+  const entries = [...groups.entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1]), "zh"));
+  const options = entries.map(([id, name]) => `<option value="${id}" ${String(id) === String(selected) ? "selected" : ""}>${esc(name)}（${id}）</option>`);
+  return (includeEmpty ? `<option value="">请选择 QQ 群</option>` : "") + options.join("");
+}
+
+function overrideRow(group, platform, kind) {
+  const rows = (group.overrides || []).filter(item => item.platform === platform && item.kind === kind);
+  const current = rows[0] || {};
+  const templates = (state.templates?.[platform]?.[kind]) || [];
+  const templateOptions = [`<option value="">内置模板</option>`].concat(
+    templates.map(name => `<option value="${esc(name)}" ${current.template_name === name ? "selected" : ""}>${esc(name)}</option>`)
+  ).join("");
+  const fontOptions = [`<option value="">默认字体</option>`].concat(
+    (state.fonts || []).map(name => `<option value="${esc(name)}" ${current.font_name === name ? "selected" : ""}>${esc(name)}</option>`)
+  ).join("");
+  const color = current.color || (platform === "bilibili" ? "#fb7299" : "#fe2c55");
+  const gradient = current.gradient_color || (platform === "bilibili" ? "#a78bfa" : "#20d5ec");
+  return `<div class="override-row">
+    <div class="kind-label">${platformBadge(platform)}${KIND_LABELS[kind] || kind}</div>
+    <select data-role="template">${templateOptions}</select>
+    <select data-role="font">${fontOptions}</select>
+    <input type="color" data-role="color" value="${color}">
+    <input type="color" data-role="gradient" value="${gradient}">
+    <button class="small" onclick="saveOverride(${group.group_id}, '${platform}', '${kind}', this)">保存</button>
+  </div>`;
+}
+
+function renderSubscriptions() {
+  const container = document.getElementById("groupCards");
+  document.getElementById("subGroup").innerHTML = groupOptions("");
+  document.getElementById("applyGroup").innerHTML = groupOptions("");
+  document.getElementById("pushGroup").innerHTML = groupOptions("");
+  document.getElementById("pushPlatform").onchange = syncPushKinds;
+  syncPushKinds();
+
+  if (!state.groups.length) {
+    container.innerHTML = `<section class="panel"><p class="muted">还没有任何订阅。先点击「扫描 QQ 群」，再添加 B 站 / 抖音作者。</p></section>`;
+    return;
+  }
+  container.innerHTML = state.groups.map(group => {
+    const subs = group.subscriptions || [];
+    const platforms = new Set(subs.map(item => item.platform));
+    const overrideRows = [...platforms].map(platform =>
+      (state.kinds[platform] || []).map(kind => overrideRow(group, platform, kind)).join("")
+    ).join("");
+    const subRows = subs.length ? subs.map(item => {
+      const switches = (group.atall || {})[item.platform + ":" + item.author_id] || [];
+      const atall = ATALL_KINDS.map(([kind, label]) => `
+        <label><input type="checkbox" ${switches.includes(kind) ? "checked" : ""}
+          onchange="toggleAtAll(${group.group_id}, '${item.platform}', '${esc(item.author_id)}', '${kind}', this.checked)">${label}</label>`).join("");
+      return `<tr>
+        <td>${platformBadge(item.platform)}</td>
+        <td><strong>${esc(item.author_name || item.author_id)}</strong></td>
+        <td class="mono muted" title="${esc(item.author_id)}">${esc(shortId(item.author_id))}</td>
+        <td><div class="atall-cell">${atall}</div></td>
+        <td style="text-align:right">
+          <button class="small danger" onclick="removeSubscription(${group.group_id}, '${item.platform}', '${esc(item.author_id)}')">取消</button>
+        </td>
+      </tr>`;
+    }).join("") : `<tr><td colspan="5" class="muted">暂无订阅</td></tr>`;
+
+    const filters = (group.filters || []).map(pattern =>
+      `<span class="chip">${esc(pattern)}<button onclick="removeFilter(${group.group_id}, '${esc(pattern)}')">×</button></span>`
+    ).join("") || `<span class="muted">未设置过滤规则</span>`;
+
+    return `<section class="group-card">
+      <div class="group-head">
+        <img src="${esc(group.avatar || "")}" alt="">
+        <div class="title"><strong>${esc(group.name || "QQ群")}</strong><small>群号 ${group.group_id}</small></div>
+        <span class="badge" style="margin-left:auto">${subs.length} 个订阅</span>
+      </div>
+      <div class="group-body">
+        <table class="sub-table">
+          <thead><tr><th>平台</th><th>作者</th><th>ID</th><th>@全体</th><th></th></tr></thead>
+          <tbody>${subRows}</tbody>
+        </table>
+        <div>
+          <div class="row between"><span class="muted">关键词过滤（正则，命中则不推送）</span></div>
+          <div class="chips" style="margin:6px 0">${filters}</div>
+          <form class="row" onsubmit="event.preventDefault(); addFilter(${group.group_id}, this)">
+            <input type="text" name="pattern" placeholder="例如：抽奖|广告" style="flex:1; min-width:200px">
+            <button class="small ghost" type="submit">添加过滤</button>
+          </form>
+        </div>
+        <div>
+          <div class="muted" style="margin-bottom:6px">渲染方案（模板 / 字体 / 配色）</div>
+          <div class="override-grid">${overrideRows || '<span class="muted">暂无</span>'}</div>
+        </div>
+      </div>
+    </section>`;
+  }).join("");
+}
+
+async function saveOverride(groupId, platform, kind, button) {
+  const row = button.closest(".override-row");
+  const body = {
+    platform, group_id: groupId, kind,
+    template_name: row.querySelector('[data-role="template"]').value || null,
+    font_name: row.querySelector('[data-role="font"]').value || null,
+    color: row.querySelector('[data-role="color"]').value || null,
+    gradient_color: row.querySelector('[data-role="gradient"]').value || null,
+  };
+  await guard(async () => {
+    await api("/api/overrides", { method: "POST", body });
+    toast("渲染方案已保存", "ok");
+    await loadState();
+  });
+}
+
+async function toggleAtAll(groupId, platform, authorId, kind, enabled) {
+  await guard(async () => {
+    await api("/api/atall", { method: "POST", body: { platform, group_id: groupId, author_id: authorId, kind, enabled } });
+    const data = await api("/api/state");
+    Object.assign(state, data);
+    renderSubscriptions();
+  });
+}
+
+async function removeSubscription(groupId, platform, authorId) {
+  if (!confirm("确定取消该订阅？")) return;
+  await guard(async () => {
+    await api(`/api/subscriptions/${platform}/${groupId}/${encodeURIComponent(authorId)}`, { method: "DELETE" });
+    toast("已取消订阅", "ok");
+    await loadState();
+  });
+}
+
+async function addFilter(groupId, form) {
+  const pattern = form.pattern.value.trim();
+  if (!pattern) return;
+  await guard(async () => {
+    await api("/api/filters", { method: "POST", body: { group_id: groupId, pattern } });
+    form.reset();
+    toast("过滤规则已添加", "ok");
+    await loadState();
+  });
+}
+
+async function removeFilter(groupId, pattern) {
+  await guard(async () => {
+    await api(`/api/filters/${groupId}?pattern=${encodeURIComponent(pattern)}`, { method: "DELETE" });
+    toast("过滤规则已删除", "ok");
+    await loadState();
+  });
+}
+
+/* ---------------------------------------------------------------- 订阅表单 */
+document.getElementById("subForm").addEventListener("submit", event => {
+  event.preventDefault();
+  const groupId = Number(document.getElementById("subGroup").value);
+  const target = document.getElementById("subTarget").value.trim();
+  if (!groupId) { toast("请选择 QQ 群（可先扫描群列表）", "err"); return; }
+  if (!target) { toast("请填写订阅目标", "err"); return; }
+  const platform = document.getElementById("subPlatform").value;
+  const groupName = (state.groups.find(item => item.group_id === groupId) || {}).name || "";
+  guard(async () => {
+    const data = await api("/api/subscriptions", {
+      method: "POST",
+      body: { platform, group_id: groupId, target, group_name: groupName },
+    });
+    document.getElementById("subTarget").value = "";
+    toast(`${data.added ? "已订阅" : "该群已订阅"} ${data.author_name}`, "ok");
+    await loadState();
+  });
+});
+
+document.getElementById("scanBtn").addEventListener("click", () => guard(async () => {
+  const data = await api("/api/groups/scan");
+  scannedGroups = data.groups || [];
+  toast(`已同步 ${scannedGroups.length} 个 QQ 群`, "ok");
+  renderSubscriptions();
+}));
+
+/* ---------------------------------------------------------------- 模板编辑 */
+function renderTemplateSelectors() {
+  const platformSelect = document.getElementById("tplPlatform");
+  const platforms = Object.keys(state.kinds || {});
+  platformSelect.innerHTML = platforms.map(key => `<option value="${key}">${PLATFORM_LABELS[key] || key}</option>`).join("");
+  platformSelect.value = currentTemplate.platform;
+  if (!platforms.includes(currentTemplate.platform) && platforms.length) currentTemplate.platform = platforms[0];
+  platformSelect.onchange = () => {
+    currentTemplate.platform = platformSelect.value;
+    currentTemplate.kind = (state.kinds[currentTemplate.platform] || [])[0] || "video";
+    currentTemplate.name = "";
+    renderKindSelectors();
+    loadTemplateSource();
+  };
+  renderKindSelectors();
+  document.getElementById("previewFont").innerHTML = `<option value="">默认字体</option>` +
+    (state.fonts || []).map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join("");
+  document.getElementById("applyFont").innerHTML = document.getElementById("previewFont").innerHTML;
+}
+
+function renderKindSelectors() {
+  const kinds = state.kinds?.[currentTemplate.platform] || [];
+  const kindSelect = document.getElementById("tplKind");
+  if (!kinds.includes(currentTemplate.kind)) currentTemplate.kind = kinds[0] || "video";
+  kindSelect.innerHTML = kinds.map(kind => `<option value="${kind}">${KIND_LABELS[kind] || kind}</option>`).join("");
+  kindSelect.value = currentTemplate.kind;
+  kindSelect.onchange = () => {
+    currentTemplate.kind = kindSelect.value;
+    currentTemplate.name = "";
+    renderTemplateFileSelect();
+    loadTemplateSource();
+  };
+  renderTemplateFileSelect();
+}
+
+function renderTemplateFileSelect() {
+  const names = state.templates?.[currentTemplate.platform]?.[currentTemplate.kind] || [];
+  const select = document.getElementById("tplFile");
+  select.innerHTML = `<option value="">内置模板</option>` + names.map(name =>
+    `<option value="${esc(name)}">${esc(name)}</option>`).join("");
+  select.value = names.includes(currentTemplate.name) ? currentTemplate.name : "";
+  currentTemplate.name = select.value;
+  select.onchange = () => {
+    currentTemplate.name = select.value;
+    loadTemplateSource();
+  };
+  const applySelect = document.getElementById("applyTemplate");
+  applySelect.innerHTML = `<option value="">内置模板</option>` + names.map(name =>
+    `<option value="${esc(name)}" ${name === currentTemplate.name ? "selected" : ""}>${esc(name)}</option>`).join("");
+}
+
+async function loadTemplateSource() {
+  await guard(async () => {
+    const query = new URLSearchParams({
+      platform: currentTemplate.platform,
+      kind: currentTemplate.kind,
+      name: currentTemplate.name,
+    });
+    const data = await api("/api/template/source?" + query.toString());
+    document.getElementById("tplEditor").value = data.content;
+    currentTemplate.custom = data.custom;
+    updateTemplateStatus();
+    toast(data.custom ? "已载入自定义模板" : "已载入内置模板", "ok");
+  });
+}
+
+function updateTemplateStatus() {
+  const label = document.getElementById("tplStatus");
+  if (currentTemplate.custom) {
+    label.className = "badge ok";
+    label.textContent = "自定义：" + currentTemplate.name;
+  } else {
+    label.className = "badge";
+    label.textContent = "内置模板（只读，可另存为）";
+  }
+}
+
+async function saveTemplate(forceName) {
+  const name = forceName || currentTemplate.name;
+  if (!name) { toast("请先「另存为」并填写文件名", "err"); return; }
+  await guard(async () => {
+    const data = await api("/api/template/source", {
+      method: "PUT",
+      body: {
+        platform: currentTemplate.platform,
+        kind: currentTemplate.kind,
+        name,
+        content: document.getElementById("tplEditor").value,
+      },
+    });
+    state.templates = data.templates;
+    currentTemplate.name = data.name;
+    currentTemplate.custom = true;
+    renderTemplateFileSelect();
+    updateTemplateStatus();
+    renderAssets();
+    toast("模板已保存", "ok");
+  });
+}
+
+document.getElementById("tplSave").addEventListener("click", () => saveTemplate());
+document.getElementById("tplSaveAs").addEventListener("click", () => {
+  const suggested = `${currentTemplate.platform}-${currentTemplate.kind}-custom.html`;
+  const name = prompt("模板文件名（.html）", suggested);
+  if (!name) return;
+  saveTemplate(name.trim());
+});
+document.getElementById("tplLoad").addEventListener("click", loadTemplateSource);
+document.getElementById("tplNew").addEventListener("click", () => {
+  document.getElementById("tplFile").value = "";
+  currentTemplate.name = "";
+  currentTemplate.custom = false;
+  updateTemplateStatus();
+  document.getElementById("tplEditor").focus();
+  toast("已切换到新建模式：编辑后点击「另存为」");
+});
+document.getElementById("tplRevert").addEventListener("click", () => {
+  currentTemplate.name = "";
+  document.getElementById("tplFile").value = "";
+  currentTemplate.custom = false;
+  loadTemplateSource();
+});
+document.getElementById("tplDelete").addEventListener("click", () => {
+  if (!currentTemplate.custom) { toast("内置模板不可删除", "err"); return; }
+  if (!confirm(`删除模板 ${currentTemplate.name}？引用它的群将恢复内置模板。`)) return;
+  guard(async () => {
+    const query = new URLSearchParams({
+      platform: currentTemplate.platform, kind: currentTemplate.kind, name: currentTemplate.name,
+    });
+    const data = await api("/api/template?" + query.toString(), { method: "DELETE" });
+    state.templates = data.templates;
+    currentTemplate.name = "";
+    currentTemplate.custom = false;
+    renderTemplateFileSelect();
+    await loadTemplateSource();
+    renderAssets();
+    toast("模板已删除", "ok");
+  });
+});
+document.getElementById("tplUploadBtn").addEventListener("click", () => document.getElementById("tplUpload").click());
+document.getElementById("tplUpload").addEventListener("change", event => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append("file", file);
+  form.append("platform", currentTemplate.platform);
+  form.append("kind", currentTemplate.kind);
+  guard(async () => {
+    const data = await api("/api/upload/template", { method: "POST", body: form });
+    state.templates = data.templates;
+    currentTemplate.name = data.name;
+    renderTemplateFileSelect();
+    await loadTemplateSource();
+    renderAssets();
+    toast("模板已上传", "ok");
+  });
+  event.target.value = "";
+});
+
+document.getElementById("tplPreview").addEventListener("click", () => previewCurrentTemplate());
+document.getElementById("applyBtn").addEventListener("click", () => {
+  const groupId = Number(document.getElementById("applyGroup").value);
+  if (!groupId) { toast("请选择 QQ 群", "err"); return; }
+  if (!currentTemplate.custom) { toast("请先保存为自定义模板再应用", "err"); return; }
+  guard(async () => {
+    await api("/api/overrides", {
+      method: "POST",
+      body: {
+        platform: currentTemplate.platform,
+        group_id: groupId,
+        kind: currentTemplate.kind,
+        template_name: document.getElementById("applyTemplate").value || currentTemplate.name,
+        font_name: document.getElementById("applyFont").value || null,
+        color: document.getElementById("applyColor").value || null,
+        gradient_color: document.getElementById("applyGradient").value || null,
+      },
+    });
+    toast("已应用到该群", "ok");
+    await loadState();
+  });
+});
+document.getElementById("applyReset").addEventListener("click", () => {
+  const groupId = Number(document.getElementById("applyGroup").value);
+  if (!groupId) { toast("请选择 QQ 群", "err"); return; }
+  guard(async () => {
+    await api("/api/overrides", {
+      method: "POST",
+      body: { platform: currentTemplate.platform, group_id: groupId, kind: currentTemplate.kind },
+    });
+    toast("已恢复默认渲染方案", "ok");
+    await loadState();
+  });
+});
+
+async function previewCurrentTemplate() {
+  const box = document.getElementById("previewBox");
+  box.innerHTML = "渲染中…";
+  await guard(async () => {
+    const data = await api("/api/preview", {
+      method: "POST",
+      body: {
+        platform: currentTemplate.platform,
+        kind: currentTemplate.kind,
+        identifier: document.getElementById("previewId").value.trim(),
+        font_name: document.getElementById("previewFont").value || null,
+        color: document.getElementById("previewColor").value || null,
+        gradient_color: document.getElementById("previewGradient").value || null,
+        source: document.getElementById("tplEditor").value,
+      },
+    });
+    box.innerHTML = `<img src="${data.image}" alt="预览">`;
+  });
+  if (box.innerHTML === "渲染中…") box.innerHTML = "预览失败";
+}
+
+/* ---------------------------------------------------------------- 资源 */
+function renderAssets() {
+  document.getElementById("fontCount").textContent = (state.fonts || []).length;
+  document.getElementById("fontList").innerHTML = (state.fonts || []).map(name => `
+    <span class="chip">${esc(name)}
+      <button onclick="deleteFont('${esc(name)}')">×</button>
+    </span>`).join("") || '<span class="muted">暂无字体，上传后可在模板中通过 font_css 生效</span>';
+
+  const inventory = Object.entries(state.templates || {}).map(([platform, kinds]) => {
+    const rows = Object.entries(kinds).map(([kind, names]) =>
+      `<div style="margin:4px 0">${platformBadge(platform)}${KIND_LABELS[kind] || kind}：
+        ${names.length ? names.map(name => `<span class="chip">${esc(name)}</span>`).join("") : '<span class="muted">仅内置模板</span>'}</div>`
+    ).join("");
+    return `<div style="margin-bottom:8px"><strong>${PLATFORM_LABELS[platform] || platform}</strong>${rows}</div>`;
+  }).join("");
+  document.getElementById("templateInventory").innerHTML = inventory || "暂无模板";
+}
+
+document.getElementById("fontUploadBtn").addEventListener("click", () => {
+  const file = document.getElementById("fontUpload").files[0];
+  if (!file) { toast("请选择字体文件", "err"); return; }
+  const form = new FormData();
+  form.append("file", file);
+  guard(async () => {
+    await api("/api/upload/font", { method: "POST", body: form });
+    document.getElementById("fontUpload").value = "";
+    await loadState();
+    toast("字体已上传", "ok");
+  });
+});
+
+async function deleteFont(name) {
+  if (!confirm(`删除字体 ${name}？`)) return;
+  await guard(async () => {
+    await api("/api/font?name=" + encodeURIComponent(name), { method: "DELETE" });
+    await loadState();
+    toast("字体已删除", "ok");
+  });
+}
+
+/* ---------------------------------------------------------------- 登录 */
+function renderLogin() {
+  const bili = state.cookies?.bilibili || {};
+  const douyin = state.cookies?.douyin || {};
+  document.getElementById("biliCookieState").textContent =
+    "Cookie：" + (bili.configured ? bili.hint : "未配置");
+  let douyinText = "Cookie：未配置";
+  if (douyin.configured) {
+    douyinText = "Cookie：" + douyin.hint +
+      (douyin.stored_session ? "（含登录态 sessionid）" : "（缺少 sessionid，可能未被认可）");
+  }
+  document.getElementById("dyCookieState").textContent = douyinText;
+}
+
+document.getElementById("biliQrBtn").addEventListener("click", () => guard(async () => {
+  const data = await api("/api/login/bilibili/qr", { method: "POST" });
+  const image = document.getElementById("biliQr");
+  image.src = data.image;
+  image.hidden = false;
+  document.getElementById("biliLoginState").textContent = "请使用哔哩哔哩客户端扫码";
+  if (biliPollTimer) clearInterval(biliPollTimer);
+  biliPollTimer = setInterval(async () => {
+    try {
+      const poll = await api("/api/login/bilibili/poll?key=" + encodeURIComponent(data.key));
+      document.getElementById("biliLoginState").textContent = poll.message;
+      if (poll.state === "success") {
+        clearInterval(biliPollTimer); biliPollTimer = null;
+        image.hidden = true;
+        toast("B站登录成功", "ok");
+        await loadState();
+      } else if (poll.state === "expired") {
+        clearInterval(biliPollTimer); biliPollTimer = null;
+      }
+    } catch (error) {
+      clearInterval(biliPollTimer); biliPollTimer = null;
+      toast(error.message, "err");
+    }
+  }, 2200);
+}));
+
+document.getElementById("biliCookieSave").addEventListener("click", () => {
+  const cookie = document.getElementById("biliCookieInput").value.trim();
+  if (!cookie) { toast("请粘贴 Cookie", "err"); return; }
+  guard(async () => {
+    await api("/api/cookie", { method: "POST", body: { platform: "bilibili", cookie } });
+    document.getElementById("biliCookieInput").value = "";
+    await loadState();
+    toast("B站 Cookie 已保存", "ok");
+  });
+});
+document.getElementById("biliCookieClear").addEventListener("click", () => guard(async () => {
+  await api("/api/cookie", { method: "POST", body: { platform: "bilibili", cookie: "" } });
+  await loadState();
+  toast("B站 Cookie 已清除", "ok");
+}));
+
+function setDouyinButtons(enabled) {
+  ["dyRefreshBtn", "dySaveBtn", "dyStopBtn", "dyTypeBtn", "dyEnterBtn"].forEach(id => {
+    document.getElementById(id).disabled = !enabled;
+  });
+}
+
+function applyDouyinPayload(data) {
+  if (data.key) dyLogin.key = data.key;
+  const box = document.getElementById("dyShotBox");
+  const shot = document.getElementById("dyShot");
+  if (data.image) { shot.src = data.image; box.hidden = false; }
+  document.getElementById("dyLoginState").textContent = data.message || "";
+  if (data.state === "success") {
+    setDouyinButtons(false);
+    if (dyLogin.timer) { clearInterval(dyLogin.timer); dyLogin.timer = null; }
+    toast("抖音登录成功", "ok");
+    loadState();
+  } else if (data.state === "expired") {
+    setDouyinButtons(false);
+    if (dyLogin.timer) { clearInterval(dyLogin.timer); dyLogin.timer = null; }
+  } else {
+    setDouyinButtons(true);
+  }
+}
+
+async function douyinAction(action, payload = {}) {
+  if (!dyLogin.key) { toast("请先打开登录页", "err"); return; }
+  await guard(async () => {
+    const data = await api("/api/login/douyin/action", {
+      method: "POST",
+      body: { key: dyLogin.key, action, ...payload },
+    });
+    applyDouyinPayload(data);
+  });
+}
+
+document.getElementById("dyStartBtn").addEventListener("click", () => guard(async () => {
+  const data = await api("/api/login/douyin/start", { method: "POST" });
+  applyDouyinPayload(data);
+  if (dyLogin.timer) clearInterval(dyLogin.timer);
+  if (!data.key) return;
+  dyLogin.timer = setInterval(async () => {
+    try {
+      const poll = await api("/api/login/douyin/status?key=" + encodeURIComponent(dyLogin.key));
+      applyDouyinPayload(poll);
+    } catch (error) {
+      clearInterval(dyLogin.timer); dyLogin.timer = null;
+      toast(error.message, "err");
+    }
+  }, 4000);
+}));
+
+document.getElementById("dyRefreshBtn").addEventListener("click", () => douyinAction("screenshot"));
+document.getElementById("dyTypeBtn").addEventListener("click", () => {
+  const text = document.getElementById("dyTypeText").value;
+  if (!text) { toast("请输入内容", "err"); return; }
+  douyinAction("type", { text });
+});
+document.getElementById("dyEnterBtn").addEventListener("click", () => douyinAction("press", { key_name: "Enter" }));
+document.getElementById("dyShot").addEventListener("click", event => {
+  const rect = event.target.getBoundingClientRect();
+  const x = (event.clientX - rect.left) / rect.width * 1440;
+  const y = (event.clientY - rect.top) / rect.height * 900;
+  douyinAction("click", { x: Math.round(x), y: Math.round(y) });
+});
+document.getElementById("dySaveBtn").addEventListener("click", () => guard(async () => {
+  const data = await api("/api/login/douyin/save", { method: "POST" });
+  await loadState();
+  toast(data.hint ? "已保存当前 Cookie" : "尚未获得 Cookie", data.hint ? "ok" : "err");
+}));
+document.getElementById("dyStopBtn").addEventListener("click", () => guard(async () => {
+  if (dyLogin.key) await api("/api/login/douyin/" + encodeURIComponent(dyLogin.key), { method: "DELETE" });
+  if (dyLogin.timer) { clearInterval(dyLogin.timer); dyLogin.timer = null; }
+  dyLogin.key = "";
+  setDouyinButtons(false);
+  document.getElementById("dyShotBox").hidden = true;
+  document.getElementById("dyLoginState").textContent = "会话已结束";
+}));
+document.getElementById("dyCookieSave").addEventListener("click", () => {
+  const cookie = document.getElementById("dyCookieInput").value.trim();
+  if (!cookie) { toast("请粘贴 Cookie", "err"); return; }
+  guard(async () => {
+    const data = await api("/api/cookie", { method: "POST", body: { platform: "douyin", cookie } });
+    document.getElementById("dyCookieInput").value = "";
+    await loadState();
+    if (!data.count) {
+      toast("没有解析到任何 Cookie，请检查粘贴内容", "err");
+    } else if (!data.has_session) {
+      toast(`已保存 ${data.count} 个 Cookie，但缺少 sessionid：请复制 www.douyin.com 的完整 Cookie`, "err");
+    } else {
+      toast(`已保存 ${data.count} 个 Cookie${data.live ? "并注入浏览器" : ""}（含登录态）`, "ok");
+      document.getElementById("dyLoginState").textContent = "Cookie 已就绪，可点「验证登录态」确认";
+    }
+  });
+});
+document.getElementById("dyVerifyBtn").addEventListener("click", () => guard(async () => {
+  const label = document.getElementById("dyLoginState");
+  label.textContent = "正在打开抖音检测登录态…";
+  const data = await api("/api/login/douyin/verify", { method: "POST" });
+  if (data.logged_in) {
+    label.textContent = `已登录（浏览器 Cookie ${data.cookie_count} 个）`;
+    toast("抖音登录态有效", "ok");
+  } else if (data.has_session) {
+    label.textContent = "已注入 sessionid，但抖音仍显示登录按钮：Cookie 可能已过期或被风控";
+    toast("登录态无效，请重新扫码登录", "err");
+  } else {
+    label.textContent = "未登录：浏览器里没有 sessionid";
+    toast("未登录抖音，请扫码或粘贴完整 Cookie", "err");
+  }
+}));
+document.getElementById("dyCookieClear").addEventListener("click", () => guard(async () => {
+  await api("/api/cookie", { method: "POST", body: { platform: "douyin", cookie: "" } });
+  await loadState();
+  toast("抖音 Cookie 已清除", "ok");
+}));
+
+/* ---------------------------------------------------------------- 设置 */
+function syncPushKinds() {
+  const platform = document.getElementById("pushPlatform").value;
+  const kinds = platform === "bilibili"
+    ? [["dynamic", "动态"], ["video", "视频"], ["live", "直播"]]
+    : [["video", "最新作品"], ["live", "直播"]];
+  document.getElementById("pushKind").innerHTML = kinds.map(([value, label]) =>
+    `<option value="${value}">${label}</option>`).join("");
+  document.getElementById("pushHint").textContent = platform === "bilibili"
+    ? "B站：动态填动态号，视频填 BV/AV 号，直播填直播间号。"
+    : "抖音：输入作者主页链接或 sec_user_id；「最新作品」推送最新一条视频。";
+}
+
+function renderSettings() {
+  const config = state.config || {};
+  document.getElementById("cfgBiliDynamic").checked = !!config.enable_bilibili_dynamic;
+  document.getElementById("cfgBiliLive").checked = !!config.enable_bilibili_live;
+  document.getElementById("cfgDouyin").checked = !!config.enable_douyin;
+  document.getElementById("cfgLiveEnd").checked = !!config.notify_live_end;
+  document.getElementById("cfgBiliDynamicInterval").value = config.bilibili_dynamic_interval || 120;
+  document.getElementById("cfgBiliLiveInterval").value = config.bilibili_live_interval || 30;
+  document.getElementById("cfgDouyinInterval").value = config.douyin_interval || 180;
+
+  const browser = state.browser || {};
+  document.getElementById("browserInfo").innerHTML = `
+    <div class="chips">
+      <span class="chip">配置：${esc(browser.configured || "-")}</span>
+      <span class="chip">卡片渲染：${esc(browser.renderer || "尚未启动")}</span>
+      <span class="chip">抖音抓取：${esc(browser.douyin || "尚未启动")}</span>
+    </div>`;
+}
+
+document.getElementById("cfgSave").addEventListener("click", () => guard(async () => {
+  await api("/api/runtime", {
+    method: "POST",
+    body: {
+      enable_bilibili_dynamic: document.getElementById("cfgBiliDynamic").checked,
+      enable_bilibili_live: document.getElementById("cfgBiliLive").checked,
+      enable_douyin: document.getElementById("cfgDouyin").checked,
+      notify_live_end: document.getElementById("cfgLiveEnd").checked,
+      bilibili_dynamic_interval: Number(document.getElementById("cfgBiliDynamicInterval").value) || 120,
+      bilibili_live_interval: Number(document.getElementById("cfgBiliLiveInterval").value) || 30,
+      douyin_interval: Number(document.getElementById("cfgDouyinInterval").value) || 180,
+    },
+  });
+  toast("运行配置已保存并生效", "ok");
+  await loadState();
+}));
+
+document.getElementById("pushBtn").addEventListener("click", () => {
+  const groupId = Number(document.getElementById("pushGroup").value);
+  if (!groupId) { toast("请选择 QQ 群", "err"); return; }
+  guard(async () => {
+    const data = await api("/api/push", {
+      method: "POST",
+      body: {
+        platform: document.getElementById("pushPlatform").value,
+        group_id: groupId,
+        kind: document.getElementById("pushKind").value,
+        identifier: document.getElementById("pushId").value.trim(),
+      },
+    });
+    toast(`已推送：${data.title}`, "ok");
+  });
+});
+
+/* ---------------------------------------------------------------- 启动 */
+guard(async () => {
+  await loadState();
+  await loadTemplateSource();
+});
+</script>
+</body>
+</html>

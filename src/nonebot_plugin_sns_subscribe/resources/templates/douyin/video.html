@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <style>
+    {{ font_css | safe }}
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; }
+    body { width: 620px; padding: 22px; color: #18181b; font-family: "Microsoft YaHei", sans-serif; letter-spacing: 0; }
+    #sns-card { width: 576px; padding: 9px; border-radius: 18px; background: var(--sns-theme); box-shadow: 0 12px 34px rgba(24, 24, 27, .2); }
+    .inner { overflow: hidden; border-radius: 11px; background: #fff; }
+    .visual { position: relative; min-height: 300px; overflow: hidden; background: #18181b; }
+    .cover { display: block; width: 100%; height: 330px; object-fit: cover; }
+    .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.04) 28%, rgba(0,0,0,.84) 100%); }
+    .badge { position: absolute; top: 15px; left: 0; padding: 6px 17px; border-radius: 0 15px 15px 0; background: var(--sns-theme); color: #fff; font-size: 12px; font-weight: 750; }
+    .copy { position: absolute; right: 20px; bottom: 19px; left: 20px; color: #fff; }
+    h1 { margin: 0; font-size: 22px; line-height: 1.45; overflow-wrap: anywhere; text-shadow: 0 2px 9px rgba(0,0,0,.35); }
+    .author { display: flex; align-items: center; gap: 13px; padding: 17px 21px 18px; }
+    .avatar { width: 48px; height: 48px; flex: 0 0 auto; border: 2px solid #ececef; border-radius: 50%; background: #f4f4f5; object-fit: cover; }
+    .name { color: var(--sns-accent); font-size: 16px; font-weight: 750; }
+    .time { margin-top: 4px; color: #71717a; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <article id="sns-card">
+    <div class="inner">
+      <section class="visual">
+        {% if content.cover %}<img class="cover" src="{{ content.cover }}" alt="">{% endif %}
+        <div class="shade"></div><div class="badge">新视频</div>
+        <div class="copy"><h1>{{ content.title }}</h1></div>
+      </section>
+      <section class="author">
+        {% if content.author_avatar %}<img class="avatar" src="{{ content.author_avatar }}" alt="">{% endif %}
+        <div><div class="name">{{ content.author_name }}</div>{% if content.published_text %}<div class="time">发布时间 {{ content.published_text }}</div>{% endif %}</div>
+      </section>
+    </div>
+  </article>
+</body>
+</html>
