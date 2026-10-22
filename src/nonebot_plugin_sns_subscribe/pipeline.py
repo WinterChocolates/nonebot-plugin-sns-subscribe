@@ -10,7 +10,9 @@ from nonebot.adapters.onebot.v11.exception import ActionFailed
 
 from .rules import should_at_all, matches_any_filter
 from .assets import select_render_assets
-from .models import LiveAction, ContentKind, PushContent
+from .config import plugin_config
+from .models import Platform, LiveAction, ContentKind, PushContent
+from .forward import link_forward_nodes, link_forward_message
 from .database import repository
 from .renderer import renderer
 
@@ -54,6 +56,63 @@ def _is_self_echo_timeout(error: ActionFailed) -> bool:
     )
 
 
+async def _send_group_message(
+    bot: Bot, group_id: int, message: Message
+) -> DeliveryResult:
+    try:
+        await bot.send_group_msg(group_id=group_id, message=message)
+    except ActionFailed as exc:
+        if _is_self_echo_timeout(exc):
+            logger.warning(
+                "SNS subscription: 群 {} 发送后等待自身上报超时，"
+                "按已送达处理以避免重复推送",
+                group_id,
+            )
+            return DeliveryResult.SENT
+        logger.exception("SNS subscription: 发送到群 {} 失败", group_id)
+        return DeliveryResult.FAILED
+    except Exception:
+        logger.exception("SNS subscription: 发送到群 {} 失败", group_id)
+        return DeliveryResult.FAILED
+    return DeliveryResult.SENT
+
+
+def _forward_enabled(content: PushContent) -> bool:
+    if content.platform is Platform.BILIBILI:
+        return plugin_config.sns_bilibili_forward
+    if content.platform is Platform.DOUYIN:
+        return plugin_config.sns_douyin_forward
+    return False
+
+
+async def _send_forward_link(bot: Bot, group_id: int, content: PushContent) -> None:
+    """发送合并转发链接；失败只记日志，不影响图片推送结果。"""
+
+    try:
+        self_id = int(bot.self_id)
+    except (TypeError, ValueError):
+        self_id = 0
+    nodes = link_forward_nodes(content, self_id)
+    if nodes is None:
+        return
+    try:
+        await bot.call_api("send_group_forward_msg", group_id=group_id, messages=nodes)
+        return
+    except Exception as exc:
+        logger.warning(
+            "SNS subscription: 群 {} 发送合并转发失败（{}），尝试直接发 node 消息",
+            group_id,
+            exc,
+        )
+    message = link_forward_message(content, self_id)
+    if message is None:
+        return
+    try:
+        await bot.send_group_msg(group_id=group_id, message=message)
+    except Exception:
+        logger.exception("SNS subscription: 群 {} 发送合并转发链接失败", group_id)
+
+
 async def _deliver_to_group(
     group_id: int,
     content: PushContent,
@@ -92,22 +151,10 @@ async def _deliver_to_group(
             logger.exception("SNS subscription: 渲染失败，回退为文本消息")
             message += MessageSegment.text(content_as_text(content))
 
-    try:
-        await bot.send_group_msg(group_id=group_id, message=message)
-    except ActionFailed as exc:
-        if _is_self_echo_timeout(exc):
-            logger.warning(
-                "SNS subscription: 群 {} 发送后等待自身上报超时，"
-                "按已送达处理以避免重复推送",
-                group_id,
-            )
-            return DeliveryResult.SENT
-        logger.exception("SNS subscription: 发送到群 {} 失败", group_id)
-        return DeliveryResult.FAILED
-    except Exception:
-        logger.exception("SNS subscription: 发送到群 {} 失败", group_id)
-        return DeliveryResult.FAILED
-    return DeliveryResult.SENT
+    result = await _send_group_message(bot, group_id, message)
+    if result is DeliveryResult.SENT and _forward_enabled(content):
+        await _send_forward_link(bot, group_id, content)
+    return result
 
 
 async def push_to_group(

@@ -54,6 +54,14 @@ class Config(BaseModel):
     # ---- 行为 ----
     sns_initial_post_limit: int = Field(default=3, ge=1, le=20)
     sns_notify_live_end: bool = Field(default=False, description="是否推送下播通知")
+    sns_bilibili_forward: bool = Field(
+        default=True,
+        description="B 站推送图片后再发一条合并转发消息（内容为链接）",
+    )
+    sns_douyin_forward: bool = Field(
+        default=True,
+        description="抖音推送图片后再发一条合并转发消息（内容为链接）",
+    )
     # ---- 初始凭据（也可在 Web 后台 / 命令中写入数据库）----
     sns_bilibili_cookie: SecretStr | None = None
     sns_douyin_cookie: SecretStr | None = None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 import time
 import asyncio
 from typing import Any
@@ -55,6 +56,48 @@ def parse_kind(value: str) -> ContentKind:
     if kind is None:
         raise ValueError("类型必须是 dynamic、video、live（B站还支持 article、music）")
     return kind
+
+
+BV_IN_TEXT = re.compile(r"BV[0-9A-Za-z]{10}", re.IGNORECASE)
+AV_IN_TEXT = re.compile(r"(?:^|[/=])(?:av|AV)(\d+)")
+BILI_LIVE_IN_TEXT = re.compile(r"live\.bilibili\.com/(?:h5/)?(\d+)")
+BILI_DYNAMIC_IN_TEXT = re.compile(r"(?:t\.bilibili\.com|bilibili\.com/opus)/(\d+)")
+
+
+def infer_kind(platform: Platform, identifier: str) -> ContentKind:
+    """未指定类型时，根据链接 / 编号推断推送类型。"""
+
+    value = identifier.strip()
+    if platform is Platform.BILIBILI:
+        if "live.bilibili.com" in value:
+            return ContentKind.LIVE
+        if "t.bilibili.com" in value or "/opus/" in value:
+            return ContentKind.DYNAMIC
+        if "/read/" in value:
+            return ContentKind.ARTICLE
+        if "/audio/" in value:
+            return ContentKind.MUSIC
+        return ContentKind.VIDEO
+    if "live.douyin.com" in value:
+        return ContentKind.LIVE
+    # 抖音作品链接与作者主页链接都按「最新作品」推送
+    return ContentKind.VIDEO
+
+
+def normalize_bilibili_identifier(value: str) -> str:
+    """从 B 站链接中抽出接口需要的编号，普通编号 / BV 号原样保留。"""
+
+    text = value.strip()
+    for pattern in (
+        BV_IN_TEXT,
+        BILI_LIVE_IN_TEXT,
+        BILI_DYNAMIC_IN_TEXT,
+        AV_IN_TEXT,
+    ):
+        match = pattern.search(text)
+        if match:
+            return match.group(1) if match.groups() else match.group(0)
+    return text
 
 
 def mask_cookie(value: str) -> str:
@@ -125,6 +168,7 @@ async def manual_content(
 ) -> PushContent:
     value = identifier.strip()
     if platform is Platform.BILIBILI:
+        value = normalize_bilibili_identifier(value)
         if kind is ContentKind.DYNAMIC:
             return await bilibili_source.get_dynamic(value)
         if kind is ContentKind.VIDEO:

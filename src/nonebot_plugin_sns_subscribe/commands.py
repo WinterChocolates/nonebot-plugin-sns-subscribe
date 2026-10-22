@@ -20,6 +20,7 @@ from .pipeline import push_to_group
 from .renderer import renderer
 from .services import (
     subscribe,
+    infer_kind,
     parse_kind,
     make_qr_png,
     unsubscribe,
@@ -41,7 +42,8 @@ HELP_TEXT = """B站 / 抖音订阅推送
 /sub filter del <规则或序号>
 /sub filter list
 /sub atall <all|video|dynamic|live> on|off <作者ID>
-/sub push <bili|douyin> <类型> <编号|主页链接>
+/sub push <bili|douyin> [类型] <编号|主页链接>
+/sub push douyin https://www.douyin.com/user/xxxx   直接推该作者最新作品
 /sub login bilibili                     扫码登录 B 站（超管）
 /sub login douyin                       获取抖音登录方式（超管）
 /sub status                             查看运行状态
@@ -220,11 +222,23 @@ async def _handle_filter(matcher: Matcher, ctx: CommandContext) -> None:
 
 async def _handle_push(matcher: Matcher, ctx: CommandContext) -> None:
     _require_manage(ctx)
-    if len(ctx.tokens) < 4:
-        raise ValueError("用法：/sub push <bili|douyin> <类型> <编号|主页链接>")
+    if len(ctx.tokens) < 3:
+        raise ValueError("用法：/sub push <bili|douyin> [类型] <编号|主页链接>")
     platform = parse_platform(ctx.tokens[1])
-    kind = parse_kind(ctx.tokens[2])
-    identifier = " ".join(ctx.tokens[3:]).strip()
+    arguments = ctx.tokens[2:]
+    kind: ContentKind | None = None
+    if len(arguments) > 1:
+        try:
+            kind = parse_kind(arguments[0])
+        except ValueError:
+            kind = None
+    if kind is not None:
+        arguments = arguments[1:]
+    identifier = " ".join(arguments).strip()
+    if not identifier:
+        raise ValueError("请填写要推送的编号或链接")
+    if kind is None:
+        kind = infer_kind(platform, identifier)
     content = await manual_content(platform, kind, identifier)
     sent = await push_to_group(_require_group(ctx), content, bypass_filters=True)
     await matcher.finish("推送成功" if sent else "推送失败，请查看日志")

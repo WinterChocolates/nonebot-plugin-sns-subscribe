@@ -842,7 +842,8 @@ class DouyinSource:
             url=url,
             author_name=profile.name,
             author_avatar=profile.avatar,
-            cover=live.cover_url,
+            # 抖音直播间常常解析不到封面，此时直接用博主头像兜底
+            cover=live.cover_url or profile.avatar,
             live_action=action,
         )
 

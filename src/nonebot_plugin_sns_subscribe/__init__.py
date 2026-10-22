@@ -44,6 +44,29 @@ install_web()
 driver = get_driver()
 
 
+def cookie_status_text(
+    has_bilibili: bool, has_douyin: bool, web_path: str
+) -> str:
+    """根据两个平台的 Cookie 状态生成启动提示。"""
+
+    if has_bilibili and has_douyin:
+        return "B 站与抖音 Cookie 均已配置，动态、作品与直播轮询正常"
+    if not has_bilibili and not has_douyin:
+        return (
+            "尚未配置 B 站与抖音 Cookie，动态、作品与直播轮询都会跳过；"
+            f"请在 Web 后台（{web_path}/）扫码登录"
+        )
+    if not has_bilibili:
+        return (
+            "尚未配置 B 站 Cookie，B 站动态与直播轮询会跳过；抖音 Cookie 已配置。"
+            f"请在 Web 后台（{web_path}/）扫码登录 B 站"
+        )
+    return (
+        "尚未配置抖音 Cookie，抖音作品与直播轮询会跳过；B 站 Cookie 已配置。"
+        f"请在 Web 后台（{web_path}/）扫码登录抖音"
+    )
+
+
 @driver.on_startup
 async def _startup() -> None:
     await repository.initialize()
@@ -61,12 +84,15 @@ async def _startup() -> None:
             "或安装 fonts-noto-cjk"
         )
     install_jobs()
-    if not await bilibili_source.has_cookie():
-        logger.warning(
-            "SNS subscription: 尚未配置 B 站 Cookie，动态轮询会跳过；"
-            "请在 Web 后台（{}/）扫码登录",
-            plugin_config.sns_web_path,
-        )
+    has_bilibili = await bilibili_source.has_cookie()
+    has_douyin = await douyin_source.has_cookie()
+    status_text = cookie_status_text(
+        has_bilibili, has_douyin, plugin_config.sns_web_path
+    )
+    if has_bilibili and has_douyin:
+        logger.info("SNS subscription: {}", status_text)
+    else:
+        logger.warning("SNS subscription: {}", status_text)
     if plugin_config.sns_web_enabled:
         token = await ensure_web_token()
         logger.warning(
