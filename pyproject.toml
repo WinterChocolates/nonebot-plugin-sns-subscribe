@@ -69,7 +69,17 @@ exclude_lines = [
 ]
 
 [tool.nonebot]
-plugins = ["nonebot_plugin_sns_subscribe"]
+plugin_dirs = []
+builtin_plugins = []
+
+[tool.nonebot.plugins]
+"@local" = ["nonebot_plugin_sns_subscribe"]
+
+[tool.nonebot.adapters]
+"@local" = []
+"nonebot-adapter-onebot" = [
+  { name = "OneBot V11", module_name = "nonebot.adapters.onebot.v11" },
+]
 
 [tool.poe.tasks]
 test = "pytest --cov=src --cov-report xml --junitxml=./junit.xml -n auto"
